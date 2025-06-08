@@ -1,34 +1,44 @@
-name: Deploy to GitHub Pages
+name: Deploy and Clean gh-pages
 
 on:
   push:
     branches:
-      - main  # change if your default branch is different
-
-permissions:
-  contents: write  # needed for gh-pages branch
+      - main  # or your source branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # full history, needed later
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
 
-      - name: Install Dependencies
-        run: npm install
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Build Site
-        run: npm run build  # should output to dist/ or build/
+    - name: Build site
+      run: npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist  # or ./build for React
+    - name: Deploy to gh-pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
+        keep_files: false
+        force_orphan: false  # do not create orphan so we can keep history
+
+    - name: Cleanup gh-pages history (keep last 10 commits)
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git fetch origin gh-pages --depth=0
+        git checkout gh-pages
+        git reset --hard $(git rev-parse HEAD~10)
+        git push --force origin gh-pages
